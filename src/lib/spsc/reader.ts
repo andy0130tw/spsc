@@ -9,8 +9,8 @@ interface ReadOptions extends Partial<_ReadOptions> {}
 
 type ReadResult =
   | { ok: false, error: SPSCError }
-  | { ok: true, bytesRead: 0 }
-  // bytesRead must be > 0 unless reading zero bytes
+  | { ok: true, bytesRead: 0, data: null }
+  // bytesRead must be > 0
   | { ok: true, bytesRead: number, data: Uint8Array }
 
 export class SPSCReader extends SPSC {
@@ -20,12 +20,12 @@ export class SPSCReader extends SPSC {
 
   read(nbytes: number, options?: ReadOptions): ReadResult {
     if (nbytes === 0) {
-      return { ok: true, bytesRead: 0 }
+      return { ok: true, bytesRead: 0, data: null }
     }
 
     let rpos = Atomics.load(this[kReaderPos], 0)
     let wpos = Atomics.load(this[kWriterPos], 0)
-    if (this.spaceAvailable(rpos, wpos) === this.capacity) {
+    if (this.bytesAvailable(rpos, wpos) === this.capacity) {
       if (options?.nonblock) {
         return { ok: false, error: SPSCError.Again }
       } else {
@@ -60,6 +60,7 @@ export class SPSCReader extends SPSC {
     rpos = (rpos_ + rsize) % (this.capacity * 2)
 
     Atomics.store(this[kReaderPos], 0, rpos)
+    Atomics.notify(this[kReaderPos], 0)
 
     return { ok: true, bytesRead: nread, data: buf }
   }

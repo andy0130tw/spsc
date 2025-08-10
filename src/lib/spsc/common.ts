@@ -33,13 +33,13 @@ export class SPSC {
     this.buffer = new Uint8Array(sab, SPSC.RESERVED_SIZE, this.capacity)
   }
 
-  spaceAvailable(rpos: number, wpos: number) {
+  bytesAvailable(rpos: number, wpos: number) {
     if (rpos === wpos) return this.capacity
     if ((rpos - wpos) % this.capacity === 0) return 0
     return (rpos + this.capacity - wpos) % this.capacity
   }
 
   filled(rpos: number, wpos: number) {
-    return this.capacity - this.spaceAvailable(rpos, wpos)
+    return this.capacity - this.bytesAvailable(rpos, wpos)
   }
 }

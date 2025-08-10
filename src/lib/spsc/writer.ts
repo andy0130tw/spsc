@@ -9,7 +9,7 @@ interface WriteOptions extends Partial<_WriteOptions> {}
 
 type WriteResult =
   | { ok: false, error: SPSCError }
-  // bytesWritten must be > 0 unless writing zero bytes
+  // bytesWritten must be > 0 unless nbytes is zero
   | { ok: true, bytesWritten: 0 | number }
 
 export class SPSCWriter extends SPSC {
@@ -34,7 +34,7 @@ export class SPSCWriter extends SPSC {
     let nwritten = 0
 
     let rpos = Atomics.load(this[kReaderPos], 0)
-    if (options?.nonblock && this.spaceAvailable(rpos, wpos) < nbytes) {
+    if (options?.nonblock && this.bytesAvailable(rpos, wpos) < nbytes) {
       // FIXME: always be atomic here, but should be able to opt-out on threshold (e.g. less ideal on large writes)
       return { ok: false, error: SPSCError.Again }
     }
@@ -42,7 +42,7 @@ export class SPSCWriter extends SPSC {
     while (nwritten < nbytes) {
       const wext = this.#getWritingExtent(wpos)
 
-      if (this.spaceAvailable(Atomics.load(this[kReaderPos], 0), wpos) === 0) {
+      if (this.bytesAvailable(Atomics.load(this[kReaderPos], 0), wpos) === 0) {
         // FIXME: provide a fallback way so that the main thread can wait here
         Atomics.wait(this[kReaderPos], 0, wext)
       }
@@ -60,9 +60,10 @@ export class SPSCWriter extends SPSC {
       this.buffer.set(data.slice(nwritten, nwritten + wsize), wpos)
       nwritten += wsize
       wpos = (wpos_ + wsize) % (this.capacity * 2)
-    }
 
-    Atomics.store(this[kWriterPos], 0, wpos)
+      Atomics.store(this[kWriterPos], 0, wpos)
+      Atomics.notify(this[kWriterPos], 0)
+    }
 
     return nwritten ?
       { ok: true, bytesWritten: nwritten } :
