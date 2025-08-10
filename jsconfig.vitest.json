@@ -1,0 +1,6 @@
+{
+  "extends": "./jsconfig.base.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "node_modules/.tmp/vitest.tsbuildinfo"
+  }
+}
