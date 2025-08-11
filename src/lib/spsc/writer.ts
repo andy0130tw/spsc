@@ -40,24 +40,29 @@ export class SPSCWriter extends SPSC {
     }
 
     while (nwritten < nbytes) {
-      const wext = this.#getWritingExtent(wpos)
-
       if (this.bytesAvailable(Atomics.load(this[kReaderPos], 0), wpos) === 0) {
+        const wext = this.#getWritingExtent(wpos)
         // FIXME: provide a fallback way so that the main thread can wait here
-        Atomics.wait(this[kReaderPos], 0, wext)
+        // FIXME: not knowing why the do-while loop is required or it races;
+        //        in my imagination this should not be notified with same value in a SPSC setup
+        do {
+          Atomics.wait(this[kReaderPos], 0, wext)
+        } while (Atomics.load(this[kReaderPos], 0) === wext)
       }
 
-      rpos = Atomics.load(this[kReaderPos], 0) % this.capacity
+      const rpos_ = Atomics.load(this[kReaderPos], 0)
+      rpos = rpos_ % this.capacity
 
       const wpos_ = wpos
       wpos %= this.capacity
+      // TODO: write at least a whole buffer in each iteration
       const wsize = Math.min(
         nbytes - nwritten,
         // if the reader pointer is at the right, write till buffer ending;
         // otherwise write to where reader pointer is
         (rpos <= wpos ? this.capacity : rpos) - wpos)
 
-      this.buffer.set(data.slice(nwritten, nwritten + wsize), wpos)
+      this.buffer.set(data.subarray(nwritten, nwritten + wsize), wpos)
       nwritten += wsize
       wpos = (wpos_ + wsize) % (this.capacity * 2)
 

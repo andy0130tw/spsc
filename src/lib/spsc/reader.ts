@@ -25,16 +25,17 @@ export class SPSCReader extends SPSC {
 
     let rpos = Atomics.load(this[kReaderPos], 0)
     let wpos = Atomics.load(this[kWriterPos], 0)
-    if (this.bytesAvailable(rpos, wpos) === this.capacity) {
+    if (rpos === wpos) {
       if (options?.nonblock) {
         return { ok: false, error: SPSCError.Again }
       } else {
-        // FIXME: see writer
-        Atomics.wait(this[kWriterPos], 0, rpos)
+        // FIXME: main thread waiting & do...while; see writer
+        do {
+          Atomics.wait(this[kWriterPos], 0, rpos)
+        } while (Atomics.load(this[kWriterPos], 0) === rpos)
       }
     }
 
-    let buf: Uint8Array
     wpos = Atomics.load(this[kWriterPos], 0) % this.capacity
 
     const rpos_ = rpos
@@ -42,8 +43,9 @@ export class SPSCReader extends SPSC {
 
     let nread = 0
     let rsize: number
+    let buf: Uint8Array
 
-    // rpos === wpos iff. the buffer is full
+    // (rpos === wpos) (mod cap) iff. the buffer is full
     if (rpos < wpos) {
       rsize = Math.min(wpos - rpos, nbytes - nread)
       buf = this.buffer.slice(rpos, rpos + rsize)
@@ -51,8 +53,8 @@ export class SPSCReader extends SPSC {
       rsize = Math.min(this.capacity - rpos, nbytes - nread)
       const warpped = Math.min(wpos, nbytes - nread - rsize)
       buf = new Uint8Array(rsize + warpped)
-      buf.set(this.buffer.slice(rpos, rpos + rsize))
-      buf.set(this.buffer.slice(0, warpped), rsize)
+      buf.set(this.buffer.subarray(rpos, rpos + rsize))
+      buf.set(this.buffer.subarray(0, warpped), rsize)
       rsize += warpped
     }
 
