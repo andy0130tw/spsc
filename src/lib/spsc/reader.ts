@@ -14,8 +14,9 @@ type ReadResult =
   | { ok: true, bytesRead: number, data: Uint8Array }
 
 export class SPSCReader extends SPSC {
-  constructor(sab: SharedArrayBuffer) {
-    super(sab)
+  #storeNotifyReaderPos(n: number) {
+    Atomics.store(this[kReaderPos], 0, n)
+    Atomics.notify(this[kReaderPos], 0)
   }
 
   read(nbytes: number, options?: ReadOptions): ReadResult {
@@ -23,47 +24,47 @@ export class SPSCReader extends SPSC {
       return { ok: true, bytesRead: 0, data: null }
     }
 
-    let rpos = Atomics.load(this[kReaderPos], 0)
-    let wpos = Atomics.load(this[kWriterPos], 0)
-    if (rpos === wpos) {
+    let rpos = this.loadReaderPos()
+    let wpos = this.loadWriterPos()
+    if (wpos === rpos) {
       if (options?.nonblock) {
         return { ok: false, error: SPSCError.Again }
       } else {
-        // FIXME: main thread waiting & do...while; see writer
+        // FIXME: main thread waiting; see writer
         do {
           Atomics.wait(this[kWriterPos], 0, rpos)
-        } while (Atomics.load(this[kWriterPos], 0) === rpos)
+        } while ((wpos = this.loadWriterPos()) === rpos)
       }
     }
 
-    wpos = Atomics.load(this[kWriterPos], 0) % this.capacity
+    wpos %= this.capacity
 
     const rpos_ = rpos
     rpos %= this.capacity
 
-    let nread = 0
     let rsize: number
+    let wrapped = 0
     let buf: Uint8Array
 
     // (rpos === wpos) (mod cap) iff. the buffer is full
     if (rpos < wpos) {
-      rsize = Math.min(wpos - rpos, nbytes - nread)
-      buf = this.buffer.slice(rpos, rpos + rsize)
+      rsize = Math.min(nbytes, wpos - rpos)
     } else {
-      rsize = Math.min(this.capacity - rpos, nbytes - nread)
-      const warpped = Math.min(wpos, nbytes - nread - rsize)
-      buf = new Uint8Array(rsize + warpped)
-      buf.set(this.buffer.subarray(rpos, rpos + rsize))
-      buf.set(this.buffer.subarray(0, warpped), rsize)
-      rsize += warpped
+      rsize = Math.min(nbytes, this.capacity - rpos)
+      wrapped = Math.min(wpos, nbytes - rsize)
     }
 
-    nread += rsize
-    rpos = (rpos_ + rsize) % (this.capacity * 2)
+    if (wrapped === 0) {
+      buf = this.buffer.slice(rpos, rpos + rsize)
+    } else {
+      buf = new Uint8Array(rsize + wrapped)
+      buf.set(this.buffer.subarray(rpos, rpos + rsize))
+      buf.set(this.buffer.subarray(0, wrapped), rsize)
+      rsize += wrapped
+    }
 
-    Atomics.store(this[kReaderPos], 0, rpos)
-    Atomics.notify(this[kReaderPos], 0)
+    this.#storeNotifyReaderPos((rpos_ + rsize) % (this.capacity << 1))
 
-    return { ok: true, bytesRead: nread, data: buf }
+    return { ok: true, bytesRead: rsize, data: buf }
   }
 }

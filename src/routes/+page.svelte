@@ -1,32 +1,33 @@
 <script>
-  import Worker from '$lib/worker?worker'
-  import WriteWorker from '$lib/worker/writer?worker'
+  import Producer from '$lib/worker/producer?worker'
+  import Consumer from '$lib/worker/consumer?worker'
+  import { SPSC_RESERVED_SIZE } from '$lib/spsc/common'
 
   if (!window.crossOriginIsolated) {
     throw new Error('NOT COI')
   }
 
-  const readWorker = new Worker({ name: 'reader' })
-  const writeWorker = new WriteWorker({ name: 'writer' })
+  const producer = new Producer({ name: 'producer' })
+  const consumer = new Consumer({ name: 'consumer' })
 
   const SIZE = 8
-  const sab = new SharedArrayBuffer(16 + SIZE)
+  const sab = new SharedArrayBuffer(SPSC_RESERVED_SIZE + SIZE)
 
-  readWorker.postMessage({ sab })
-  writeWorker.postMessage({ sab })
+  producer.postMessage({ sab })
+  consumer.postMessage({ sab })
 
-  readWorker.onerror = function(data) {
-    console.error(`READER encounter error`, data.error)
+  producer.onerror = function(error) {
+    console.error(`PRODUCER encounter error`, error)
     halt()
   }
-  writeWorker.onerror = function(data) {
-    console.error(`WRITER encounter error`, data.error)
+  consumer.onerror = function(error) {
+    console.error(`CONSUMER encounter error`, error)
     halt()
   }
 
   function halt() {
-    readWorker.terminate()
-    writeWorker.terminate()
+    producer.terminate()
+    consumer.terminate()
   }
 
 </script>

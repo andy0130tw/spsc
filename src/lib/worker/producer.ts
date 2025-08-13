@@ -12,19 +12,19 @@ const { sab } = initData
 const writer = new SPSCWriter(sab)
 
 let i = 0
-while (i < 1000) {
-  const arr = []
+while (i < 100000) {
   const cnt = Math.floor(Math.random() * 40) + 1
-  const end = i + cnt
-  for (let j = i; j < end; j++) {
-    arr.push(j)
+  const u8a = new Uint8Array(cnt)
+  const end = Math.min(i + cnt, 100000)
+  for (let j = 0; j < cnt; j++) {
+    u8a[j] = i + j
   }
-  const result = writer.write(new Uint8Array(arr))
-  if (!result.ok) {
+  const result = writer.write(u8a)
+  if (!result.ok || result.bytesWritten !== cnt) {
     throw new Error('write failed')
   }
   i = end
-  if (Math.random() < .5) {
+  if (Math.random() < .1) {
     await new Promise(r => setTimeout(r))
   }
 }

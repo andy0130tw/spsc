@@ -11,9 +11,11 @@ export enum SPSCError {
   Unimplemented = 'UNIMPLEMENTED',
 }
 
+export const SPSC_RESERVED_SIZE = 16
+
 export class SPSC {
   // must be >= 8
-  static RESERVED_SIZE = 16
+  static RESERVED_SIZE = SPSC_RESERVED_SIZE
 
   capacity: number
   buffer: SharedUint8Array
@@ -33,10 +35,13 @@ export class SPSC {
     this.buffer = new Uint8Array(sab, SPSC.RESERVED_SIZE, this.capacity)
   }
 
+  loadReaderPos() { return Atomics.load(this[kReaderPos], 0) }
+  loadWriterPos() { return Atomics.load(this[kWriterPos], 0) }
+
+  // because of the wrap around, this is actually easier to calculate
   bytesAvailable(rpos: number, wpos: number) {
-    if (rpos === wpos) return this.capacity
-    if ((rpos - wpos) % this.capacity === 0) return 0
-    return (rpos + this.capacity - wpos) % this.capacity
+    return rpos === wpos ? this.capacity :
+      (rpos + this.capacity - wpos) % this.capacity
   }
 
   filled(rpos: number, wpos: number) {
