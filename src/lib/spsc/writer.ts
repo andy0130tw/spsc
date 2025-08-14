@@ -13,9 +13,17 @@ type WriteResult =
   | { ok: true, bytesWritten: 0 | number }
 
 export class SPSCWriter extends SPSC {
+  constructor(sab: SharedArrayBuffer, readonly notifier?: MessagePort) {
+    super(sab)
+  }
+
   #storeNotifyWriterPos(n: number) {
     Atomics.store(this[kWriterPos], 0, n)
-    Atomics.notify(this[kWriterPos], 0)
+    if (this.notifier) {
+      this.notifier.postMessage(true)
+    } else {
+      Atomics.notify(this[kWriterPos], 0)
+    }
   }
 
   // TODO: allow writing in-place using a callback

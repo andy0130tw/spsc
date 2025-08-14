@@ -6,10 +6,22 @@ const initData = await new Promise(resolve => {
   addEventListener('message', (evt) => {
     resolve(evt.data)
   }, { once: true })
-}) as { sab: SharedArrayBuffer }
+}) as { sab: SharedArrayBuffer, port?: MessagePort }
 
-const { sab } = initData
-const writer = new SPSCWriter(sab)
+const { sab, port } = initData
+
+if (port) {
+  // plumbing, since the first sending is queued
+  port.postMessage(false)
+  await new Promise<void>(r => {
+    port.onmessage = () => {
+      port.onmessage = null
+      r()
+    }
+  })
+}
+
+const writer = new SPSCWriter(sab, port)
 
 let i = 0
 while (i < 100000) {
@@ -29,4 +41,4 @@ while (i < 100000) {
   }
 }
 
-console.log('writer finish writing')
+console.log('producer finish writing')

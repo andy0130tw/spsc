@@ -8,28 +8,41 @@
   }
 
   const producer = new Producer({ name: 'producer' })
-  const consumer = new Consumer({ name: 'consumer' })
+  /** @type {Worker | undefined} */
+  let consumer
 
   const SIZE = 8
   const sab = new SharedArrayBuffer(SPSC_RESERVED_SIZE + SIZE)
-
-  producer.postMessage({ sab })
-  consumer.postMessage({ sab })
 
   producer.onerror = function(error) {
     console.error(`PRODUCER encounter error`, error)
     halt()
   }
-  consumer.onerror = function(error) {
-    console.error(`CONSUMER encounter error`, error)
-    halt()
+
+  const demoInWorker = true
+  if (demoInWorker) {
+    producer.postMessage({ sab })
+
+    consumer = new Consumer({ name: 'consumer' })
+    consumer.postMessage({ sab })
+    consumer.onerror = function(error) {
+      console.error(`CONSUMER encounter error`, error)
+      halt()
+    }
+  } else {
+    const msgchan = new MessageChannel()
+
+    import('$lib/readerJob')
+    .then(({default: readerJob}) => {
+      producer.postMessage({ sab, port: msgchan.port1 }, [msgchan.port1])
+      return readerJob(sab, msgchan.port2)
+    })
   }
 
   function halt() {
     producer.terminate()
-    consumer.terminate()
+    consumer?.terminate()
   }
-
 </script>
 
 <h1>it works!</h1>
