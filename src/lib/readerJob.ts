@@ -5,19 +5,27 @@ export default async function(sab: SharedArrayBuffer, msgport?: MessagePort) {
   const reader = new SPSCReader(sab)
 
   let pendingRead: (() => void) | undefined
+  let initialized = false
 
   if (msgport) {
     msgport.onmessage = (event) => {
       if (pendingRead == null) return
       if (!event.data) {
-        // for plumbing, send ACK
-        msgport.postMessage(true)
+        if (initialized) {
+          throw new Error('Initialization message should only be sent once')
+        }
+        // send ACK
+        msgport.postMessage(null)
+        initialized = true
+        return
       }
       pendingRead()
       pendingRead = undefined
     }
   }
 
+  let lastReported = performance.now()
+  let lastReportedSeq = 0
   console.warn('reader start', performance.now())
 
   let seq = 0
@@ -47,6 +55,14 @@ export default async function(sab: SharedArrayBuffer, msgport?: MessagePort) {
         throw new Error(`got WRONG SEQ ${seq}: Requesting ${reqcnt}; Expected ${seq & 0xff} but received (${result.data})[${i}] -> ${result.data![i]}`)
       }
       seq++
+    }
+
+    const elps = performance.now() - lastReported
+    if (elps > 1000) {
+      const seqdiff = seq - lastReportedSeq
+      console.warn('reader report: seq', seq, `avg speed ${(seqdiff / elps * 1000).toFixed(3)} bps`)
+      lastReported = performance.now()
+      lastReportedSeq = seq
     }
 
     if (Math.random() < .1) {

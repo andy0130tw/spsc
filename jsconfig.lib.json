@@ -1,0 +1,18 @@
+{
+  "extends": "./jsconfig.base.json",
+  "compilerOptions": {
+    "moduleResolution": "nodenext",
+    "sourceMap": true,
+    "tsBuildInfoFile": "node_modules/.tmp/lib.tsbuildinfo"
+  },
+  "include": [
+    "./src/lib/spsc/**/*.js",
+    "./src/lib/spsc/**/*.ts"
+	],
+  "exclude": [
+    "**/*.test.js",
+    "**/*.test.ts",
+    "**/*.spec.js",
+    "**/*.spec.ts"
+  ],
+}

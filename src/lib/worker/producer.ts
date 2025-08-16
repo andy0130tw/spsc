@@ -11,7 +11,10 @@ const initData = await new Promise(resolve => {
 const { sab, port } = initData
 
 if (port) {
-  // plumbing, since the first sending is queued
+  // fix the initialization order to prevent deadlocks
+  // 1. producer sends SYN (false) and blocks
+  // 2. consumer recvs SYN and responds with ACK (anything)
+  // 3. producer then starts writing data
   port.postMessage(false)
   await new Promise<void>(r => {
     port.onmessage = () => {
@@ -23,11 +26,14 @@ if (port) {
 
 const writer = new SPSCWriter(sab, port)
 
+const maxWriteChunkSize = 20
+
 let i = 0
 while (i < 100000) {
-  const cnt = Math.floor(Math.random() * 40) + 1
+  const m = Math.min(100000 - i, maxWriteChunkSize)
+  const cnt = Math.floor(Math.random() * m) + 1
+  const end = i + cnt
   const u8a = new Uint8Array(cnt)
-  const end = Math.min(i + cnt, 100000)
   for (let j = 0; j < cnt; j++) {
     u8a[j] = i + j
   }

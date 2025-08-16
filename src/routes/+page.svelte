@@ -19,8 +19,8 @@
     halt()
   }
 
-  const demoInWorker = true
-  if (demoInWorker) {
+  const consumerInWorker = false
+  if (consumerInWorker) {
     producer.postMessage({ sab })
 
     consumer = new Consumer({ name: 'consumer' })
@@ -46,3 +46,7 @@
 </script>
 
 <h1>it works!</h1>
+<ul>
+  <li>Buffer <code>SIZE</code> is <strong>{SIZE}</strong>.</li>
+  <li><code>consumerInWorker</code> is <strong>{consumerInWorker ? 'enabled' : 'disabled'}</strong>.</li>
+</ul>

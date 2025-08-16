@@ -1,4 +1,4 @@
-import { SPSC, SPSCError, kReaderPos, kWriterPos } from './common'
+import { SPSC, SPSCError, kReaderPos, kWriterPos } from './common.js'
 
 interface _WriteOptions {
   nonblock: boolean

@@ -25,8 +25,12 @@ export class SPSC {
   constructor(sab: SharedArrayBuffer) {
     const size = sab.byteLength
 
-    if (size < SPSC.RESERVED_SIZE + 2) {
-      throw new TypeError('buffer size too small')
+    // XXX: it is embarrassing that we cannot really check this way
+    //      in case that the execution context is not cross-origin isolated
+    // if (!(sab instanceof SharedArrayBuffer)) {}
+
+    if (size < SPSC.RESERVED_SIZE + 1) {
+      throw new TypeError('buffer size is too small')
     }
 
     this.capacity = size - SPSC.RESERVED_SIZE
