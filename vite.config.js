@@ -1,6 +1,18 @@
 import { sveltekit } from '@sveltejs/kit/vite'
 import { defineConfig } from 'vitest/config'
 
+export const sharedConfig = defineConfig({
+  clearScreen: false,
+  build: {
+    // bumped for TLA
+    target: ['es2022', 'edge89', 'firefox89', 'chrome89', 'safari15'],
+  },
+  test: {
+    globals: true,
+    include: ['src/**/*.{test,spec}.{js,ts}'],
+  },
+})
+
 /** @returns {import('vite').Plugin<unknown>} */
 function configureResponseHeaders() {
   return ({
@@ -16,23 +28,15 @@ function configureResponseHeaders() {
 }
 
 export default defineConfig({
+  ...sharedConfig,
   server: {
     port: 8099,
   },
-  clearScreen: false,
   plugins: [
     configureResponseHeaders(),
     sveltekit(),
   ],
   worker: {
     format: 'es',
-  },
-  build: {
-    // bumped for TLA
-    target: ['es2022', 'edge89', 'firefox89', 'chrome89', 'safari15'],
-  },
-  test: {
-    globals: true,
-    include: ['src/**/*.{test,spec}.{js,ts}'],
   },
 })

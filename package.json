@@ -8,7 +8,7 @@
   "scripts": {
     "dev": "vite dev",
     "build": "vite build",
-    "build:lib": "svelte-package -i src/lib/spsc",
+    "build:lib": "vite build -c vite.config.lib.js",
     "preview": "vite preview",
     "prepare": "svelte-kit sync || true",
     "check": "svelte-kit sync && svelte-check --tsconfig ./jsconfig.app.json",
@@ -17,33 +17,53 @@
     "test:unit": "vitest",
     "test": "npm run test:unit -- --run"
   },
-  "files": ["dist/"],
+  "files": [
+    "dist/"
+  ],
   "main": "./dist/common.js",
   "types": "./dist/common.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/common.d.ts",
-      "import": "./dist/common.js"
+      "require": {
+        "types": "./dist/common.d.cts",
+        "default": "./dist/common.cjs"
+      },
+      "import": {
+        "types": "./dist/common.d.ts",
+        "default": "./dist/common.js"
+      }
     },
     "./reader": {
-      "types": "./dist/reader.d.ts",
-      "import": "./dist/reader.js"
+      "require": {
+        "types": "./dist/reader.d.cts",
+        "default": "./dist/reader.cjs"
+      },
+      "import": {
+        "types": "./dist/reader.d.ts",
+        "default": "./dist/reader.js"
+      }
     },
     "./writer": {
-      "types": "./dist/writer.d.ts",
-      "import": "./dist/writer.js"
+      "require": {
+        "types": "./dist/writer.d.cts",
+        "default": "./dist/writer.cjs"
+      },
+      "import": {
+        "types": "./dist/writer.d.ts",
+        "default": "./dist/writer.js"
+      }
     }
   },
   "devDependencies": {
     "@sveltejs/adapter-node": "~5.2.13",
     "@sveltejs/kit": "~2.27.0",
-    "@sveltejs/package": "^2.4.1",
     "@sveltejs/vite-plugin-svelte": "~5.1.1",
     "@types/node": "~22.17.0",
     "svelte": "~5.37.3",
     "svelte-check": "~4.3.1",
     "typescript": "~5.9.2",
     "vite": "~6.3.5",
+    "vite-plugin-dts": "^4.5.4",
     "vitest": "~3.2.4"
   },
   "engines": {
