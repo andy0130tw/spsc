@@ -13,14 +13,14 @@ type WriteResult =
   | { ok: true, bytesWritten: 0 | number }
 
 export class SPSCWriter extends SPSC {
-  constructor(sab: SharedArrayBuffer, readonly notifier?: MessagePort) {
+  constructor(sab: SharedArrayBuffer, readonly notifier?: MessagePort, readonly notifierToken?: any) {
     super(sab)
   }
 
   #storeNotifyWriterPos(n: number) {
     Atomics.store(this[kWriterPos], 0, n)
     if (this.notifier) {
-      this.notifier.postMessage(true)
+      this.notifier.postMessage(this.notifierToken ?? true)
     } else {
       Atomics.notify(this[kWriterPos], 0)
     }

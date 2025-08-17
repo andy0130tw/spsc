@@ -12,20 +12,20 @@ interface ReadOptions extends Partial<_ReadOptions> {}
 
 type ReadResult =
   | { ok: false, error: SPSCError }
-  // when nbytes is zero or EOF
+  // when nbytes is zero or EOF (TODO)
   | { ok: true, bytesRead: 0, data: null }
   // bytesRead must be > 0
   | { ok: true, bytesRead: number, data: Uint8Array }
 
 export class SPSCReader extends SPSC {
-  constructor(sab: SharedArrayBuffer, readonly notifier?: MessagePort) {
+  constructor(sab: SharedArrayBuffer, readonly notifier?: MessagePort, readonly notifierToken?: any) {
     super(sab)
   }
 
   #storeNotifyReaderPos(n: number) {
     Atomics.store(this[kReaderPos], 0, n)
     if (this.notifier) {
-      this.notifier.postMessage(true)
+      this.notifier.postMessage(this.notifierToken ?? true)
     } else {
       Atomics.notify(this[kReaderPos], 0)
     }

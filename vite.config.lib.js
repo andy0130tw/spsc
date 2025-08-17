@@ -19,9 +19,11 @@ export default defineConfig({
     ...sharedConfig.build,
     lib: {
       entry: {
+        common: path.resolve(import.meta.dirname, 'src/lib/spsc/common.ts'),
         reader: path.resolve(import.meta.dirname, 'src/lib/spsc/reader.ts'),
         writer: path.resolve(import.meta.dirname, 'src/lib/spsc/writer.ts'),
       },
     },
+    minify: false,
   },
 })
