@@ -1,5 +1,5 @@
-import { SPSCError } from "./spsc/common"
-import { SPSCReader } from "./spsc/reader"
+import { SPSCError } from 'spsc'
+import { SPSCReader } from 'spsc/reader'
 
 export default async function(sab: SharedArrayBuffer, msgport?: MessagePort) {
   const reader = new SPSCReader(sab)

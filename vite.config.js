@@ -1,17 +1,6 @@
 import { sveltekit } from '@sveltejs/kit/vite'
 import { defineConfig } from 'vitest/config'
-
-export const sharedConfig = defineConfig({
-  clearScreen: false,
-  build: {
-    // bumped for TLA
-    target: ['es2022', 'edge89', 'firefox89', 'chrome89', 'safari15'],
-  },
-  test: {
-    globals: true,
-    include: ['src/**/*.{test,spec}.{js,ts}'],
-  },
-})
+import { sharedConfig } from './vite.config.shared'
 
 /** @returns {import('vite').Plugin<unknown>} */
 function configureResponseHeaders() {
@@ -31,6 +20,9 @@ export default defineConfig({
   ...sharedConfig,
   server: {
     port: 8099,
+    fs: {
+      allow: ['packages']
+    }
   },
   plugins: [
     configureResponseHeaders(),

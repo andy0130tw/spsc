@@ -1,6 +1,6 @@
 export {}
 
-import { SPSCWriter } from '$lib/spsc/writer'
+import { SPSCWriter } from 'spsc/writer'
 
 const initData = await new Promise(resolve => {
   addEventListener('message', (evt) => {

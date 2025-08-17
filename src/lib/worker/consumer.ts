@@ -1,6 +1,6 @@
 /// <reference lib="webworker" />
 
-import readerJob from "$lib/readerJob"
+import readerJob from '$lib/readerJob'
 
 export {}
 

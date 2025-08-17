@@ -29,6 +29,12 @@ jobs:
     - name: List current npm dependencies
       run: npm ls
 
+    - name: Test/build packages
+      working-directory: ./packages/spsc
+      run: |
+        npm run build
+        npm run test
+
     - name: Run Svelte check
       run: npm run check
 

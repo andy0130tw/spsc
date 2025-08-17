@@ -19,13 +19,13 @@ import { SPSCWriter } from 'spsc/writer'
 
 const sab = new SharedArrayBuffer(16 + 256)
 const writer = new SPSCWriter(sab)
-writer.write(new Uint8Array([1, 2, 3]))  // -> { result: ok, bytesWritten: 3 }
+writer.write(new Uint8Array([1, 2, 3]))  // -> { ok: true, bytesWritten: 3 }
 ```
 
 ```js
 import { SPSCReader } from 'spsc/reader'
 const reader = new SPSCWriter(sab)
-reader.read(3)  // -> { result: ok, bytesRead: 3, data: ... }
+reader.read(3)  // -> { ok: true, bytesRead: 3, data: ... }
 ```
 
 Note that by default, blocking I/O behavior is done with `Atomics.{wait,notify}`.

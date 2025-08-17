@@ -5,6 +5,8 @@
     "lib": ["esnext"]
   },
   "include": [
-    "./vite.config.js"
+    "./vite.config.js",
+    "./vite.config.shared.js",
+    "./packages/spsc/vite.config.ts"
   ]
 }

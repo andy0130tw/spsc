@@ -1,7 +1,7 @@
 <script>
   import Producer from '$lib/worker/producer?worker'
   import Consumer from '$lib/worker/consumer?worker'
-  import { SPSC_RESERVED_SIZE } from '$lib/spsc/common'
+  import { SPSC_RESERVED_SIZE } from 'spsc'
 
   if (!window.crossOriginIsolated) {
     throw new Error('NOT COI')
