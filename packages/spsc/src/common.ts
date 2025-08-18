@@ -17,10 +17,10 @@ export class SPSC {
   // must be >= 8
   static RESERVED_SIZE = SPSC_RESERVED_SIZE
 
-  capacity: number
-  buffer: SharedUint8Array
-  [kReaderPos]: SharedInt32Array
-  [kWriterPos]: SharedInt32Array
+  readonly capacity: number
+  readonly buffer: SharedUint8Array
+  protected [kReaderPos]: SharedInt32Array
+  protected [kWriterPos]: SharedInt32Array
 
   constructor(sab: SharedArrayBuffer) {
     const size = sab.byteLength
@@ -43,12 +43,12 @@ export class SPSC {
   loadWriterPos() { return Atomics.load(this[kWriterPos], 0) }
 
   // because of the wrap around, this is actually easier to calculate
-  bytesAvailable(rpos: number, wpos: number) {
+  protected availableToWriter(rpos: number, wpos: number) {
     return rpos === wpos ? this.capacity :
       (rpos + this.capacity - wpos) % this.capacity
   }
 
-  filled(rpos: number, wpos: number) {
-    return this.capacity - this.bytesAvailable(rpos, wpos)
+  protected availableToReader(rpos: number, wpos: number) {
+    return this.capacity - this.availableToWriter(rpos, wpos)
   }
 }

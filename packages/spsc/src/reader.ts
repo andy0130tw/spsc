@@ -1,4 +1,5 @@
 import { SPSC, SPSCError, kReaderPos, kWriterPos } from './common.js'
+export { SPSCError, SPSC_RESERVED_SIZE } from './common.js'
 
 interface _ReadOptions {
   nonblock: boolean
@@ -8,9 +9,9 @@ interface _ReadOptions {
   // slice: boolean
 }
 
-interface ReadOptions extends Partial<_ReadOptions> {}
+export interface ReadOptions extends Partial<_ReadOptions> {}
 
-type ReadResult =
+export type ReadResult =
   | { ok: false, error: SPSCError }
   // when nbytes is zero or EOF (TODO)
   | { ok: true, bytesRead: 0, data: null }
@@ -18,7 +19,7 @@ type ReadResult =
   | { ok: true, bytesRead: number, data: Uint8Array }
 
 export class SPSCReader extends SPSC {
-  constructor(sab: SharedArrayBuffer, readonly notifier?: MessagePort, readonly notifierToken?: any) {
+  constructor(sab: SharedArrayBuffer, readonly notifier?: MessagePort, readonly notifierToken?: unknown) {
     super(sab)
   }
 
@@ -78,5 +79,36 @@ export class SPSCReader extends SPSC {
     this.#storeNotifyReaderPos((rpos_ + rsize) % (this.capacity << 1))
 
     return { ok: true, bytesRead: rsize, data: buf }
+  }
+
+  bytesAvailable() {
+    const rpos = this.loadReaderPos()
+    const wpos = this.loadWriterPos()
+    return this.availableToReader(rpos, wpos)
+  }
+
+  // TODO: allow for cancellation
+  pollRead(timeout: number = Infinity) {
+    const forever = timeout > 0 && !Number.isFinite(timeout)
+
+    const rpos = this.loadReaderPos()
+    let wpos = this.loadWriterPos()
+    // fast path
+    if (wpos !== rpos) return true
+
+    if (forever) {
+      // prevent the overhead of calling performance.now
+      do {
+        Atomics.wait(this[kWriterPos], 0, rpos)
+      } while ((wpos = this.loadWriterPos()) === rpos)
+    } else {
+      const deadline = performance.now() + timeout
+      do {
+        if (Atomics.wait(this[kWriterPos], 0, rpos, deadline - performance.now()) === 'timed-out') {
+          return false
+        }
+      } while ((wpos = this.loadWriterPos()) === rpos)
+    }
+    return true
   }
 }

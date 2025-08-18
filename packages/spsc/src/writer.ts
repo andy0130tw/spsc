@@ -1,19 +1,23 @@
 import { SPSC, SPSCError, kReaderPos, kWriterPos } from './common.js'
+export { SPSCError, SPSC_RESERVED_SIZE } from './common.js'
 
 interface _WriteOptions {
   nonblock: boolean
   nbytes: number
 }
 
-interface WriteOptions extends Partial<_WriteOptions> {}
+export interface WriteOptions extends Partial<_WriteOptions> {}
 
-type WriteResult =
+export type WriteResult =
   | { ok: false, error: SPSCError }
   // bytesWritten must be > 0 unless nbytes is zero
   | { ok: true, bytesWritten: 0 | number }
 
+const wposToExtent = (wpos: number, capacity: number) =>
+  (wpos + capacity) % (capacity << 1)
+
 export class SPSCWriter extends SPSC {
-  constructor(sab: SharedArrayBuffer, readonly notifier?: MessagePort, readonly notifierToken?: any) {
+  constructor(sab: SharedArrayBuffer, readonly notifier?: MessagePort, readonly notifierToken?: unknown) {
     super(sab)
   }
 
@@ -36,7 +40,7 @@ export class SPSCWriter extends SPSC {
 
     let wpos = this.loadWriterPos()
     let rpos = this.loadReaderPos()
-    if (options?.nonblock && this.bytesAvailable(rpos, wpos) < nbytes) {
+    if (options?.nonblock && this.availableToWriter(rpos, wpos) < nbytes) {
       // FIXME: always be atomic here, but should be able to opt-out on threshold (e.g. less ideal on large writes)
       return { ok: false, error: SPSCError.Again }
     }
@@ -45,8 +49,8 @@ export class SPSCWriter extends SPSC {
     while (nwritten < nbytes) {
       rpos = this.loadReaderPos()
 
-      if (this.bytesAvailable(rpos, wpos) === 0) {
-        const wext = (wpos + this.capacity) % (this.capacity << 1)
+      if (this.availableToWriter(rpos, wpos) === 0) {
+        const wext = wposToExtent(wpos, this.capacity)
         // FIXME: provide a fallback way so that the main thread can wait here
         do {
           Atomics.wait(this[kReaderPos], 0, wext)
@@ -85,5 +89,36 @@ export class SPSCWriter extends SPSC {
     }
 
     return { ok: true, bytesWritten: nwritten }
+  }
+
+  bytesAvailable() {
+    const wpos = this.loadWriterPos()
+    const rpos = this.loadReaderPos()
+    return this.availableToWriter(rpos, wpos)
+  }
+
+  // TODO: allow for cancellation
+  pollWrite(timeout: number = Infinity) {
+    const forever = timeout > 0 && !Number.isFinite(timeout)
+
+    const wext = wposToExtent(this.loadWriterPos(), this.capacity)
+    let rpos = this.loadReaderPos()
+    // fast path
+    if (rpos !== wext) return true
+
+    if (forever) {
+      // prevent the overhead of calling performance.now
+      do {
+        Atomics.wait(this[kReaderPos], 0, wext)
+      } while ((rpos = this.loadReaderPos()) === wext)
+    } else {
+      const deadline = performance.now() + timeout
+      do {
+        if (Atomics.wait(this[kReaderPos], 0, wext, deadline - performance.now()) === 'timed-out') {
+          return false
+        }
+      } while ((rpos = this.loadReaderPos()) === wext)
+    }
+    return true
   }
 }

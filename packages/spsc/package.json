@@ -1,6 +1,6 @@
 {
   "name": "spsc",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Single-producer-single-consumer queue that adheres to POSIX's pipe semantics.",
   "author": "qbane",
   "type": "module",
@@ -11,7 +11,7 @@
     "directory": "packages/spsc"
   },
   "scripts": {
-    "dev": "vite dev",
+    "dev": "vite build -w",
     "build": "vite build",
     "test:unit": "vitest",
     "test": "npm run test:unit -- --run"

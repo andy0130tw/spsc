@@ -32,9 +32,9 @@ Note that by default, blocking I/O behavior is done with `Atomics.{wait,notify}`
 If your thread does not allow pausing (e.g., browser main thread), this library
 provides an alternative way:
 
-Suppose that your reader lives in the main thread. To workaround, create a
-`MessageChannel` and transfer one of either port into the *other* end (in this
-example, the writer):
+Suppose that your reader lives in the main thread. To adopt this pattern,
+create a `MessageChannel` and transfer one of either port into the *other* end
+(in this example, the writer):
 
 ```js
 const msgchan = new MessageChannel()
@@ -46,7 +46,9 @@ const writer = new SPSCWriter(
 )
 ```
 
-The reader should listen to the other end to block/unblock a nonblocking read:
+The reader should listen to the other end to retry a nonblocking read. This
+technique effectively turns the blocking I/O pattern into a cooperative
+scheduling one.
 
 ```js
 let pendingRead
@@ -54,19 +56,22 @@ let pendingRead
 // suppose `port` is the transferred `msgchan.port2`
 port.onmessage = event => {
   if (pendingRead == null) return
+  // regaining the control
   pendingRead()
   pendingRead = undefined
 }
 
 while (true) {
-  reader.read(1, { nonblock: true })  // MUST be nonblocking
+  const result = reader.read(1, { nonblock: true })  // MUST be nonblocking
   if (!result.ok) {
     if (msgport && result.error === SPSCError.Again) {
+      // yielding the control
       await new Promise(resolve => pendingRead = resolve)
       continue
     } else {
       throw new Error('read failed')
     }
   }
+  // do something with the result
 }
 ```
