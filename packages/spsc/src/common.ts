@@ -1,8 +1,10 @@
+import {
+  kReaderPos,
+  kWriterPos,
+} from './internal.js'
+
 type SharedUint8Array = Uint8Array<SharedArrayBuffer>
 type SharedInt32Array = Int32Array<SharedArrayBuffer>
-
-export const kReaderPos = Symbol('readerPos')
-export const kWriterPos = Symbol('writerPos')
 
 export enum SPSCError {
   Unspecified = 'UNSPECIFIED',

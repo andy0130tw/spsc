@@ -1,4 +1,9 @@
-import { SPSC, SPSCError, kReaderPos, kWriterPos } from './common.js'
+import {
+  kReaderPos,
+  kWriterPos,
+} from './internal.js'
+import { SPSC, SPSCError } from './common.js'
+
 export { SPSCError, SPSC_RESERVED_SIZE } from './common.js'
 
 interface _ReadOptions {

@@ -24,6 +24,9 @@ export default defineConfig({
       entry: Object.fromEntries(myModules.map((mod) =>
         [mod, path.resolve(import.meta.dirname, `src/${mod}.ts`)])),
     },
+    rollupOptions: {
+      preserveEntrySignatures: 'allow-extension',
+    },
     minify: false,
   },
 })
