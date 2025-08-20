@@ -2,7 +2,7 @@ import { MAX_BYTES_COUNT } from '.'
 import { SPSCError } from 'spsc'
 import { SPSCReader } from 'spsc/reader'
 
-export default async function(sab: SharedArrayBuffer, msgport?: MessagePort) {
+export default async function(sab: SharedArrayBuffer, msgport?: MessagePort, signal?: AbortSignal) {
   const reader = new SPSCReader(sab)
 
   let pendingRead: (() => void) | undefined
@@ -25,12 +25,22 @@ export default async function(sab: SharedArrayBuffer, msgport?: MessagePort) {
     }
   }
 
+  let halted = false
+  if (signal) {
+    signal.onabort = () => void (halted = true)
+  }
+
   let lastReported = performance.now()
   let lastReportedSeq = 0
   console.warn('reader start', performance.now())
 
   let seq = 0
   while (seq < MAX_BYTES_COUNT) {
+    if (halted) {
+      console.warn('reader aborted', performance.now())
+      return
+    }
+
     const reqcnt = Math.floor(Math.random() * 10) + 1
     const result = reader.read(reqcnt, msgport ? { nonblock: true } : undefined)
 

@@ -13,14 +13,14 @@ const { sab, port } = initData
 
 if (port) {
   // fix the initialization order to prevent deadlocks
-  // 1. producer sends SYN (false) and blocks
-  // 2. consumer recvs SYN and responds with ACK (anything)
+  // 1. producer sends SYN (`false`) and blocks
+  // 2. consumer recvs SYN and responds with ACK (dontcare)
   // 3. producer then starts writing data
   port.postMessage(false)
-  await new Promise<void>(r => {
+  await new Promise<void>(resolve => {
     port.onmessage = () => {
       port.onmessage = null
-      r()
+      resolve()
     }
   })
 }
