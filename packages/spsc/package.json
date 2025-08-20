@@ -1,6 +1,6 @@
 {
   "name": "spsc",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Single-producer-single-consumer queue that adheres to POSIX's pipe semantics.",
   "author": "qbane",
   "type": "module",
