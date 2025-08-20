@@ -51,4 +51,5 @@ while (i < MAX_BYTES_COUNT) {
   }
 }
 
+writer.close()
 console.log('producer finish writing')

@@ -1,6 +1,5 @@
 import { MAX_BYTES_COUNT } from '.'
-import { SPSCError } from 'spsc'
-import { SPSCReader } from 'spsc/reader'
+import { SPSCError, SPSCReader } from 'spsc/reader'
 
 export default async function(sab: SharedArrayBuffer, msgport?: MessagePort, signal?: AbortSignal) {
   const reader = new SPSCReader(sab)
@@ -84,4 +83,11 @@ export default async function(sab: SharedArrayBuffer, msgport?: MessagePort, sig
   }
 
   console.warn('reader end', performance.now())
+
+  const final = reader.read(1)
+  if (!final.ok || final.bytesRead !== 0) {
+    throw new Error('Writer does not close properly')
+  }
+
+  reader.close()
 }
