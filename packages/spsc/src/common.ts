@@ -22,8 +22,8 @@ const SPSC_RESERVED_SIZE = 16
 // a compatibility layer
 export function allocateArrayBuffer(
   capacity: number,
-  SabCtor: SharedArrayBufferConstructor = globalThis.SharedArrayBuffer,
-  ...args: any[]) {
+  SabCtor: new (...args: any) => SharedArrayBuffer = globalThis.SharedArrayBuffer,
+  ...args: any[]): SharedArrayBuffer {
 
   if (SabCtor == null) {
     throw new TypeError('Failed to get the SharedArrayBuffer from the runtime')
@@ -32,7 +32,7 @@ export function allocateArrayBuffer(
   if (typeof Reflect !== 'undefined' && 'construct' in Reflect) {
     return Reflect.construct(SabCtor, [SPSC_RESERVED_SIZE + capacity, ...args])
   }
-  return new (SabCtor as any)(SPSC_RESERVED_SIZE + capacity, ...args)
+  return new SabCtor(SPSC_RESERVED_SIZE + capacity, ...args)
 }
 
 export abstract class SPSC {
