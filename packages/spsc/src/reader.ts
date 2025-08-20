@@ -1,10 +1,12 @@
 import {
   kReaderPos,
   kWriterPos,
+  kReaderClosedFlag,
+  kWriterClosedFlag,
 } from './internal.js'
 import { SPSC, SPSCError } from './common.js'
 
-export { SPSCError, SPSC_RESERVED_SIZE } from './common.js'
+export { SPSCError }
 
 interface _ReadOptions {
   nonblock: boolean
@@ -18,9 +20,7 @@ export interface ReadOptions extends Partial<_ReadOptions> {}
 
 export type ReadResult =
   | { ok: false, error: SPSCError }
-  // when nbytes is zero or EOF (TODO)
-  | { ok: true, bytesRead: 0, data: null }
-  // bytesRead must be > 0
+  // bytesRead must be > 0 unless nbytes is zero or EOF
   | { ok: true, bytesRead: number, data: Uint8Array }
 
 export class SPSCReader extends SPSC {
@@ -28,8 +28,7 @@ export class SPSCReader extends SPSC {
     super(sab)
   }
 
-  #storeNotifyReaderPos(n: number) {
-    Atomics.store(this[kReaderPos], 0, n)
+  #notifyReaderPos() {
     if (this.notifier) {
       this.notifier.postMessage(this.notifierToken ?? true)
     } else {
@@ -37,22 +36,38 @@ export class SPSCReader extends SPSC {
     }
   }
 
+  close() {
+    if (Atomics.compareExchange(this[kReaderClosedFlag], 0, 0, 1) !== 0) {
+      throw new Error('close: reader is already closed')
+    }
+    this.#notifyReaderPos()
+  }
+
   read(nbytes: number, options?: ReadOptions): ReadResult {
+    if (Atomics.load(this[kReaderClosedFlag], 0) !== 0) {
+      return { ok: false, error: SPSCError.Badf }
+    }
+
     if (nbytes === 0) {
-      return { ok: true, bytesRead: 0, data: null }
+      return { ok: true, bytesRead: 0, data: new Uint8Array() }
     }
 
     let rpos = this.loadReaderPos()
     let wpos = this.loadWriterPos()
     if (wpos === rpos) {
+      if (Atomics.load(this[kWriterClosedFlag], 0) !== 0) {
+        // EOF
+        return { ok: true, bytesRead: 0, data: new Uint8Array() }
+      }
+
       if (options?.nonblock) {
         return { ok: false, error: SPSCError.Again }
-      } else {
-        // FIXME: main thread waiting; see writer
-        do {
-          Atomics.wait(this[kWriterPos], 0, rpos)
-        } while ((wpos = this.loadWriterPos()) === rpos)
       }
+
+      // FIXME: main thread waiting; see writer
+      do {
+        Atomics.wait(this[kWriterPos], 0, rpos)
+      } while ((wpos = this.loadWriterPos()) === rpos)
     }
 
     wpos %= this.capacity
@@ -81,7 +96,8 @@ export class SPSCReader extends SPSC {
       rsize += wrapped
     }
 
-    this.#storeNotifyReaderPos((rpos_ + rsize) % (this.capacity << 1))
+    Atomics.store(this[kReaderPos], 0, (rpos_ + rsize) % (this.capacity << 1))
+    this.#notifyReaderPos()
 
     return { ok: true, bytesRead: rsize, data: buf }
   }
@@ -94,6 +110,14 @@ export class SPSCReader extends SPSC {
 
   // TODO: allow for cancellation
   pollRead(timeout: number = Infinity) {
+    if (Atomics.load(this[kReaderClosedFlag], 0) !== 0) {
+      throw new Error('pollRead: reader is already closed')
+    }
+
+    if (Atomics.load(this[kWriterClosedFlag], 0) !== 0) {
+      return true
+    }
+
     const forever = timeout > 0 && !Number.isFinite(timeout)
 
     const rpos = this.loadReaderPos()

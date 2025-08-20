@@ -1,6 +1,8 @@
 import {
   kReaderPos,
   kWriterPos,
+  kReaderClosedFlag,
+  kWriterClosedFlag,
 } from './internal.js'
 
 type SharedUint8Array = Uint8Array<SharedArrayBuffer>
@@ -9,20 +11,39 @@ type SharedInt32Array = Int32Array<SharedArrayBuffer>
 export enum SPSCError {
   Unspecified = 'UNSPECIFIED',
   Again = 'AGAIN',
-  Eof = 'EOF',
+  Badf = 'BADF',
+  Pipe = 'PIPE',
   Unimplemented = 'UNIMPLEMENTED',
 }
 
-export const SPSC_RESERVED_SIZE = 16
+// must be >= 16
+const SPSC_RESERVED_SIZE = 16
 
-export class SPSC {
-  // must be >= 8
+// a compatibility layer
+export function allocateArrayBuffer(
+  capacity: number,
+  SabCtor: SharedArrayBufferConstructor = globalThis.SharedArrayBuffer,
+  ...args: any[]) {
+
+  if (SabCtor == null) {
+    throw new TypeError('Failed to get the SharedArrayBuffer from the runtime')
+  }
+
+  if (typeof Reflect !== 'undefined' && 'construct' in Reflect) {
+    return Reflect.construct(SabCtor, [SPSC_RESERVED_SIZE + capacity, ...args])
+  }
+  return new (SabCtor as any)(SPSC_RESERVED_SIZE + capacity, ...args)
+}
+
+export abstract class SPSC {
   static RESERVED_SIZE = SPSC_RESERVED_SIZE
 
   readonly capacity: number
   readonly buffer: SharedUint8Array
   protected [kReaderPos]: SharedInt32Array
   protected [kWriterPos]: SharedInt32Array
+  protected [kReaderClosedFlag]: SharedUint8Array
+  protected [kWriterClosedFlag]: SharedUint8Array
 
   constructor(sab: SharedArrayBuffer) {
     const size = sab.byteLength
@@ -38,6 +59,8 @@ export class SPSC {
     this.capacity = size - SPSC.RESERVED_SIZE
     this[kReaderPos] = new Int32Array(sab, 0, 1)
     this[kWriterPos] = new Int32Array(sab, 4, 1)
+    this[kReaderClosedFlag] = new Uint8Array(sab, 8, 1)
+    this[kWriterClosedFlag] = new Uint8Array(sab, 12, 1)
     this.buffer = new Uint8Array(sab, SPSC.RESERVED_SIZE, this.capacity)
   }
 

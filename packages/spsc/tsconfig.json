@@ -9,7 +9,7 @@
       "DOM",
       "DOM.Iterable"
     ],
-    "module": "es2022",
+    "module": "nodenext",
     "noEmit": true,
     "target": "es2022",
     "esModuleInterop": true,

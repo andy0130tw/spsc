@@ -1,10 +1,12 @@
 import {
   kReaderPos,
   kWriterPos,
+  kReaderClosedFlag,
+  kWriterClosedFlag,
 } from './internal.js'
 import { SPSC, SPSCError } from './common.js'
 
-export { SPSCError, SPSC_RESERVED_SIZE } from './common.js'
+export { SPSCError } from './common.js'
 
 interface _WriteOptions {
   nonblock: boolean
@@ -26,8 +28,7 @@ export class SPSCWriter extends SPSC {
     super(sab)
   }
 
-  #storeNotifyWriterPos(n: number) {
-    Atomics.store(this[kWriterPos], 0, n)
+  #notifyWriterPos() {
     if (this.notifier) {
       this.notifier.postMessage(this.notifierToken ?? true)
     } else {
@@ -35,9 +36,25 @@ export class SPSCWriter extends SPSC {
     }
   }
 
+  close() {
+    if (Atomics.compareExchange(this[kWriterClosedFlag], 0, 0, 1) !== 0) {
+      throw new Error('close: writer is already closed')
+    }
+    // XXX: plumbing; is this correct?
+    this.#notifyWriterPos()
+  }
+
   // TODO: allow writing in-place using a callback
   write(data: Uint8Array, options?: WriteOptions): WriteResult {
     const nbytes = options?.nbytes ?? data.length
+
+    if (Atomics.load(this[kWriterClosedFlag], 0) !== 0) {
+      return { ok: false, error: SPSCError.Badf }
+    }
+
+    if (Atomics.load(this[kReaderClosedFlag], 0) !== 0) {
+      return { ok: false, error: SPSCError.Pipe }
+    }
 
     if (nbytes === 0) {
       return { ok: true, bytesWritten: 0 }
@@ -45,8 +62,11 @@ export class SPSCWriter extends SPSC {
 
     let wpos = this.loadWriterPos()
     let rpos = this.loadReaderPos()
-    if (options?.nonblock && this.availableToWriter(rpos, wpos) < nbytes) {
-      // FIXME: always be atomic here, but should be able to opt-out on threshold (e.g. less ideal on large writes)
+    if (options?.nonblock &&
+        nbytes <= this.capacity &&
+        this.availableToWriter(rpos, wpos) < nbytes) {
+      // FIXME: always be atomic if <= PIPE_BUF, but should be able to opt-out
+      // on some threshold (i.e. atomicity is only guaranteed on small writes)
       return { ok: false, error: SPSCError.Again }
     }
 
@@ -55,6 +75,10 @@ export class SPSCWriter extends SPSC {
       rpos = this.loadReaderPos()
 
       if (this.availableToWriter(rpos, wpos) === 0) {
+        if (options?.nonblock) {
+          if (nwritten > 0) break
+          return { ok: false, error: SPSCError.Again }
+        }
         const wext = wposToExtent(wpos, this.capacity)
         // FIXME: provide a fallback way so that the main thread can wait here
         do {
@@ -90,7 +114,8 @@ export class SPSCWriter extends SPSC {
       rpos = rpos_
       wpos = (wpos_ + wsize) % (this.capacity << 1)
 
-      this.#storeNotifyWriterPos(wpos)
+      Atomics.store(this[kWriterPos], 0, wpos)
+      this.#notifyWriterPos()
     }
 
     return { ok: true, bytesWritten: nwritten }
@@ -104,6 +129,14 @@ export class SPSCWriter extends SPSC {
 
   // TODO: allow for cancellation
   pollWrite(timeout: number = Infinity) {
+    if (Atomics.load(this[kWriterClosedFlag], 0) !== 0) {
+      throw new Error('pollWrite: writer is already closed')
+    }
+
+    if (Atomics.load(this[kReaderClosedFlag], 0) !== 0) {
+      return true
+    }
+
     const forever = timeout > 0 && !Number.isFinite(timeout)
 
     const wext = wposToExtent(this.loadWriterPos(), this.capacity)
