@@ -1,3 +1,4 @@
+import { MAX_BYTES_COUNT } from '.'
 import { SPSCError } from 'spsc'
 import { SPSCReader } from 'spsc/reader'
 
@@ -29,16 +30,17 @@ export default async function(sab: SharedArrayBuffer, msgport?: MessagePort) {
   console.warn('reader start', performance.now())
 
   let seq = 0
-  while (seq < 100000) {
+  while (seq < MAX_BYTES_COUNT) {
     const reqcnt = Math.floor(Math.random() * 10) + 1
     const result = reader.read(reqcnt, msgport ? { nonblock: true } : undefined)
 
     if (!result.ok) {
       if (msgport && result.error === SPSCError.Again) {
-        const p = new Promise<void>(resolve => {
+        if (pendingRead) throw new Error('should not happen')
+        await new Promise<void>(resolve => {
           pendingRead = resolve
         })
-        await p
+        if (pendingRead) throw new Error('should not happen too')
         continue
       } else {
         throw new Error('read failed')
@@ -65,8 +67,9 @@ export default async function(sab: SharedArrayBuffer, msgport?: MessagePort) {
       lastReportedSeq = seq
     }
 
-    if (Math.random() < .1) {
-      await new Promise(r => setTimeout(r))
+    let rnd = Math.random()
+    if (rnd < .1) {
+      await new Promise(r => setTimeout(r, rnd * 10))
     }
   }
 

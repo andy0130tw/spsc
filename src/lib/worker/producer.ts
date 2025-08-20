@@ -1,5 +1,6 @@
 export {}
 
+import { MAX_BYTES_COUNT } from '../index.js'
 import { SPSCWriter } from 'spsc/writer'
 
 const initData = await new Promise(resolve => {
@@ -29,9 +30,10 @@ const writer = new SPSCWriter(sab, port)
 const maxWriteChunkSize = 20
 
 let i = 0
-while (i < 100000) {
-  const m = Math.min(100000 - i, maxWriteChunkSize)
-  const cnt = Math.floor(Math.random() * m) + 1
+
+while (i < MAX_BYTES_COUNT) {
+  const max = Math.min(MAX_BYTES_COUNT - i, maxWriteChunkSize)
+  const cnt = Math.floor(Math.random() * max) + 1
   const end = i + cnt
   const u8a = new Uint8Array(cnt)
   for (let j = 0; j < cnt; j++) {
@@ -42,8 +44,10 @@ while (i < 100000) {
     throw new Error('write failed')
   }
   i = end
+
+  let rnd = Math.random()
   if (Math.random() < .1) {
-    await new Promise(r => setTimeout(r))
+    await new Promise(r => setTimeout(r, rnd * 10))
   }
 }
 

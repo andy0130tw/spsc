@@ -14,21 +14,27 @@
   const SIZE = 8
   const sab = new SharedArrayBuffer(SPSC_RESERVED_SIZE + SIZE)
 
+  // ------------------ CHANGE HERE ------------------
+  const CONSUMER_IN_WORKER = true
+  // ------------------ CHANGE HERE ------------------
+
   producer.onerror = function(error) {
     console.error(`PRODUCER encounter error`, error)
     halt()
   }
 
-  const consumerInWorker = false
-  if (consumerInWorker) {
+  /** @param {ErrorEvent} error */
+  function consumerOnError(error) {
+    console.error(`CONSUMER encounter error`, error)
+    halt()
+  }
+
+  if (CONSUMER_IN_WORKER) {
     producer.postMessage({ sab })
 
     consumer = new Consumer({ name: 'consumer' })
     consumer.postMessage({ sab })
-    consumer.onerror = function(error) {
-      console.error(`CONSUMER encounter error`, error)
-      halt()
-    }
+    consumer.onerror = consumerOnError
   } else {
     const msgchan = new MessageChannel()
 
@@ -36,7 +42,7 @@
     .then(({default: readerJob}) => {
       producer.postMessage({ sab, port: msgchan.port1 }, [msgchan.port1])
       return readerJob(sab, msgchan.port2)
-    })
+    }).catch(consumerOnError)
   }
 
   function halt() {
@@ -48,5 +54,5 @@
 <h1>it works!</h1>
 <ul>
   <li>Buffer <code>SIZE</code> is <strong>{SIZE}</strong>.</li>
-  <li><code>consumerInWorker</code> is <strong>{consumerInWorker ? 'enabled' : 'disabled'}</strong>.</li>
+  <li><code>CONSUMER_IN_WORKER</code> is <strong>{CONSUMER_IN_WORKER ? 'enabled' : 'disabled'}</strong>.</li>
 </ul>
