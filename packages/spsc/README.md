@@ -30,7 +30,7 @@ Here is the reader part:
 ```js
 import { SPSCReader } from 'spsc/reader'
 var sab  // suppose the sab is cloned
-const reader = new SPSCWriter(sab)
+const reader = new SPSCReader(sab)
 reader.read(3)  // -> { ok: true, bytesRead: 3, data: Uint8Array [1, 2, 3] }
 const ready = reader.pollRead(1000)  // -> false
 reader.close()
@@ -68,6 +68,7 @@ let pendingRead
 
 // suppose `port` is the transferred `msgchan.port2`
 port.onmessage = event => {
+  // do nothing if we are not waiting
   if (pendingRead == null) return
   // regaining the control
   pendingRead()
@@ -77,9 +78,10 @@ port.onmessage = event => {
 while (true) {
   const result = reader.read(1, { nonblock: true })  // MUST always be nonblocking
   if (!result.ok) {
-    if (msgport && result.error === SPSCError.Again) {
+    if (result.error === SPSCError.Again) {
       // yielding the control
       await new Promise(resolve => pendingRead = resolve)
+      // retry
       continue
     } else {
       throw new Error('read failed')
