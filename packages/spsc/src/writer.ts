@@ -81,9 +81,8 @@ export class SPSCWriter extends SPSC {
         }
         const wext = wposToExtent(wpos, this.capacity)
         // FIXME: provide a fallback way so that the main thread can wait here
-        do {
-          Atomics.wait(this[kReaderPos], 0, wext)
-        } while ((rpos = this.loadReaderPos()) === wext)
+        Atomics.wait(this[kReaderPos], 0, wext)
+        continue
       }
 
       const rpos_ = rpos

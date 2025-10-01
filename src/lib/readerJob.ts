@@ -12,7 +12,7 @@ export default async function(sab: SharedArrayBuffer, msgport?: MessagePort, sig
       if (pendingRead == null) return
       if (!event.data) {
         if (initialized) {
-          throw new Error('Initialization message should only be sent once')
+          throw new Error('initialization message should only be sent once')
         }
         // send ACK
         msgport.postMessage(null)
@@ -34,7 +34,7 @@ export default async function(sab: SharedArrayBuffer, msgport?: MessagePort, sig
   console.warn('reader start', performance.now())
 
   let seq = 0
-  while (seq < MAX_BYTES_COUNT) {
+  while (true) {
     if (halted) {
       console.warn('reader aborted', performance.now())
       return
@@ -56,8 +56,13 @@ export default async function(sab: SharedArrayBuffer, msgport?: MessagePort, sig
       }
     }
 
-    if (result.bytesRead === 0 || result.bytesRead > reqcnt) {
-      throw new Error(`read failed: Requesting ${reqcnt}, got ${result.bytesRead}`)
+    if (result.bytesRead === 0) {
+      console.warn('reader got EOF')
+      break
+    }
+
+    if (result.bytesRead > reqcnt) {
+      throw new Error(`read failed: Requesting ${reqcnt} bytes, got too many: ${result.bytesRead}`)
     }
 
     const cnt = result.bytesRead
@@ -82,12 +87,18 @@ export default async function(sab: SharedArrayBuffer, msgport?: MessagePort, sig
     }
   }
 
-  console.warn('reader end', performance.now())
+  console.info('reader end, seq=', seq, 'ts=', performance.now())
+
+  if (seq !== MAX_BYTES_COUNT) {
+    throw new Error(`unexpected end: ${seq} < ${MAX_BYTES_COUNT}`)
+  }
 
   const final = reader.read(1)
   if (!final.ok || final.bytesRead !== 0) {
-    throw new Error('Writer does not close properly')
+    throw new Error('writer does not close properly')
   }
 
+  console.warn('closing reader\'s end')
   reader.close()
+  console.info('reader job is done!')
 }

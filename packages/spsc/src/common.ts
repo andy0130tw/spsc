@@ -35,14 +35,25 @@ export function allocateArrayBuffer(
   return new SabCtor(SPSC_RESERVED_SIZE + capacity, ...args)
 }
 
+export function resetArrayBuffer(sab: SharedArrayBuffer) {
+  if (sab.byteLength < SPSC_RESERVED_SIZE) {
+    throw new TypeError('buffer size is too small')
+  }
+  new Uint8Array(sab).set(new Uint8Array(SPSC_RESERVED_SIZE), 0)
+}
+
 export abstract class SPSC {
   static RESERVED_SIZE = SPSC_RESERVED_SIZE
 
   readonly capacity: number
   readonly buffer: SharedUint8Array
+  /** @internal */
   protected [kReaderPos]: SharedInt32Array
+  /** @internal */
   protected [kWriterPos]: SharedInt32Array
+  /** @internal */
   protected [kReaderClosedFlag]: SharedUint8Array
+  /** @internal */
   protected [kWriterClosedFlag]: SharedUint8Array
 
   constructor(sab: SharedArrayBuffer) {
@@ -76,4 +87,9 @@ export abstract class SPSC {
   protected availableToReader(rpos: number, wpos: number) {
     return this.capacity - this.availableToWriter(rpos, wpos)
   }
+
+  abstract close(): void
+
+  static allocateArrayBuffer = allocateArrayBuffer
+  static resetArrayBuffer = resetArrayBuffer
 }

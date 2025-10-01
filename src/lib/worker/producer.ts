@@ -51,5 +51,9 @@ while (i < MAX_BYTES_COUNT) {
   }
 }
 
+console.info('producer finish writing and will close the pipe soon')
+await new Promise(r => setTimeout(r, 1000))
+console.log('closing writer\'s end')
 writer.close()
-console.log('producer finish writing')
+
+console.info('writer job is done!')

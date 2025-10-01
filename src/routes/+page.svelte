@@ -1,7 +1,7 @@
 <script>
   import Producer from '$lib/worker/producer?worker'
   import Consumer from '$lib/worker/consumer?worker'
-  import { allocateArrayBuffer } from 'spsc'
+  import { SPSC } from 'spsc'
   import { onDestroy } from 'svelte'
 
   if (!window.crossOriginIsolated) {
@@ -11,7 +11,7 @@
   const producer = new Producer({ name: 'producer' })
 
   const SIZE = 8
-  const sab = allocateArrayBuffer(SIZE)
+  const sab = SPSC.allocateArrayBuffer(SIZE)
 
   // ------------------ CHANGE HERE ------------------
   const CONSUMER_IN_WORKER = true

@@ -1,10 +1,10 @@
 /// <reference types="vitest/globals" />
 
-import { allocateArrayBuffer, SPSCError } from './common'
+import { SPSC, SPSCError } from './common'
 import { SPSCReader } from './reader'
 import { SPSCWriter } from './writer'
 
-const malloc = (n: number) => allocateArrayBuffer(n)
+const malloc = (n: number) => SPSC.allocateArrayBuffer(n)
 
 describe('spsc', () => {
   it('inits a reader or writer from a buffer', () => {
@@ -106,5 +106,16 @@ describe('spsc', () => {
         "ok": false,
       }
     `)
+  })
+
+  it('makes an SAB reusable by resetting it', () => {
+    const sab = malloc(4)
+    const writer = new SPSCWriter(sab)
+    const reader = new SPSCReader(sab)
+    writer.write(new Uint8Array([0]))
+    writer.close()
+    SPSC.resetArrayBuffer(sab)
+    writer.write(new Uint8Array([42]))
+    expect(reader.read(1)).toHaveProperty('data', new Uint8Array([42]))
   })
 })

@@ -54,7 +54,7 @@ export class SPSCReader extends SPSC {
 
     let rpos = this.loadReaderPos()
     let wpos = this.loadWriterPos()
-    if (wpos === rpos) {
+    while (wpos === rpos) {
       if (Atomics.load(this[kWriterClosedFlag], 0) !== 0) {
         // EOF
         return { ok: true, bytesRead: 0, data: new Uint8Array() }
@@ -65,9 +65,8 @@ export class SPSCReader extends SPSC {
       }
 
       // FIXME: main thread waiting; see writer
-      do {
-        Atomics.wait(this[kWriterPos], 0, rpos)
-      } while ((wpos = this.loadWriterPos()) === rpos)
+      Atomics.wait(this[kWriterPos], 0, rpos)
+      wpos = this.loadWriterPos()
     }
 
     wpos %= this.capacity

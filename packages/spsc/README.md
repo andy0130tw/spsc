@@ -17,10 +17,10 @@ accordingly. Send message to the writer side, and receive it from the reader
 side. A PoC writer should look like:
 
 ```js
-import { allocateArrayBuffer } from 'spsc'
+import { SPSC } from 'spsc'
 import { SPSCWriter } from 'spsc/writer'
 
-const sab = allocateArrayBuffer(256)
+const sab = SPSC.allocateArrayBuffer(256)
 const writer = new SPSCWriter(sab)
 writer.write(new Uint8Array([1, 2, 3]))  // -> { ok: true, bytesWritten: 3 }
 ```
