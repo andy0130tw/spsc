@@ -132,30 +132,27 @@ export class SPSCWriter extends SPSC {
       throw new Error('pollWrite: writer is already closed')
     }
 
-    if (Atomics.load(this[kReaderClosedFlag], 0) !== 0) {
-      return true
-    }
-
     const forever = timeout > 0 && !Number.isFinite(timeout)
 
     const wext = wposToExtent(this.loadWriterPos(), this.capacity)
     let rpos = this.loadReaderPos()
-    // fast path
-    if (rpos !== wext) return true
 
-    if (forever) {
-      // prevent the overhead of calling performance.now
-      do {
+    while (rpos === wext) {
+      if (Atomics.load(this[kReaderClosedFlag], 0) !== 0) {
+        return true
+      }
+
+      if (forever) {
         Atomics.wait(this[kReaderPos], 0, wext)
-      } while ((rpos = this.loadReaderPos()) === wext)
-    } else {
-      const deadline = performance.now() + timeout
-      do {
+      } else {
+        const deadline = performance.now() + timeout
         if (Atomics.wait(this[kReaderPos], 0, wext, deadline - performance.now()) === 'timed-out') {
           return false
         }
-      } while ((rpos = this.loadReaderPos()) === wext)
+      }
+      rpos = this.loadReaderPos()
     }
+
     return true
   }
 }

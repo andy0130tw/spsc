@@ -113,30 +113,26 @@ export class SPSCReader extends SPSC {
       throw new Error('pollRead: reader is already closed')
     }
 
-    if (Atomics.load(this[kWriterClosedFlag], 0) !== 0) {
-      return true
-    }
-
     const forever = timeout > 0 && !Number.isFinite(timeout)
-
     const rpos = this.loadReaderPos()
     let wpos = this.loadWriterPos()
-    // fast path
-    if (wpos !== rpos) return true
 
-    if (forever) {
-      // prevent the overhead of calling performance.now
-      do {
+    while (wpos === rpos) {
+      if (Atomics.load(this[kWriterClosedFlag], 0) !== 0) {
+        return true
+      }
+
+      if (forever) {
         Atomics.wait(this[kWriterPos], 0, rpos)
-      } while ((wpos = this.loadWriterPos()) === rpos)
-    } else {
-      const deadline = performance.now() + timeout
-      do {
+      } else {
+        const deadline = performance.now() + timeout
         if (Atomics.wait(this[kWriterPos], 0, rpos, deadline - performance.now()) === 'timed-out') {
           return false
         }
-      } while ((wpos = this.loadWriterPos()) === rpos)
+      }
+      wpos = this.loadWriterPos()
     }
+
     return true
   }
 }
