@@ -118,4 +118,71 @@ describe('spsc', () => {
     writer.write(new Uint8Array([42]))
     expect(reader.read(1)).toHaveProperty('data', new Uint8Array([42]))
   })
+
+  it('reads into a preallocated Uint8Array', () => {
+    const sab = malloc(8)
+    const writer = new SPSCWriter(sab)
+    const reader = new SPSCReader(sab)
+    writer.write(new Uint8Array([0]))
+    writer.close()
+    SPSC.resetArrayBuffer(sab)
+    writer.write(new Uint8Array([1, 5, 2, 7, 3, 8, 4, 6]))
+
+    const dest = new Uint8Array(4)
+
+    const rr1 = reader.read(3, { into: dest })
+    expect(rr1.ok).toEqual(true)
+    assert(rr1.ok)
+    expect(rr1.data).toBe(dest)
+    expect(dest).toMatchInlineSnapshot(`
+      Uint8Array [
+        1,
+        5,
+        2,
+        0,
+      ]
+    `)
+
+    expect(() => reader.read(5, { into: dest })).toThrow()
+
+    const rr2 = reader.read(2, { into: dest })
+    expect(rr2.ok).toEqual(true)
+    assert(rr2.ok)
+    expect(rr2.data).toBe(dest)
+    expect(dest).toMatchInlineSnapshot(`
+      Uint8Array [
+        7,
+        3,
+        2,
+        0,
+      ]
+    `)
+  })
+
+  it('reads into an existing arraybuffer', () => {
+    const sab = malloc(8)
+    const writer = new SPSCWriter(sab)
+    const reader = new SPSCReader(sab)
+    writer.write(new Uint8Array([0]))
+    writer.close()
+    SPSC.resetArrayBuffer(sab)
+    writer.write(new Uint8Array([1, 5, 2, 7, 3, 8, 4, 6]))
+
+    const dest = new ArrayBuffer(4)
+    const view = new Uint8Array(dest)
+    const rr1 = reader.read(3, { into: { buffer: dest, byteOffset: 1 } })
+    expect(rr1.ok).toEqual(true)
+    assert(rr1.ok)
+    expect(rr1.data.buffer).toBe(dest)
+    expect(view).toMatchInlineSnapshot(`
+      Uint8Array [
+        0,
+        1,
+        5,
+        2,
+      ]
+    `)
+
+    expect(() => reader.read(4, { into: { buffer: dest, byteOffset: 1 } })).toThrow()
+  })
 })

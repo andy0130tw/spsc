@@ -8,8 +8,14 @@ import { SPSC, SPSCError } from './common.js'
 
 export { SPSCError }
 
+type Uint8ArrayLike = { buffer: ArrayBuffer, byteOffset?: number, byteLength?: number }
+
+;{ const _: Uint8ArrayLike = new Uint8Array() }
+
 interface _ReadOptions {
   nonblock: boolean
+  /** if set, read into this array buffer to omit allocation */
+  into: Uint8ArrayLike
   // TODO: do not wrap around even if there is still more data to read
   //       so that the buffer can always be produced from a single slice;
   //       not sure if the performance gain is noticeable
@@ -44,6 +50,17 @@ export class SPSCReader extends SPSC {
   }
 
   read(nbytes: number, options?: ReadOptions): ReadResult {
+    if (!Number.isSafeInteger(nbytes) || nbytes < 0) {
+      throw new TypeError('nbytes should be a non-negative integer')
+    }
+
+    if (options?.into) {
+      const intoLen = options.into.byteLength ?? (options.into.buffer.byteLength - (options.into.byteOffset ?? 0))
+      if (intoLen < nbytes) {
+        throw new TypeError(`the buffer size to read into (${intoLen}) is smaller than bytes requested to read (${nbytes})`)
+      }
+    }
+
     if (Atomics.load(this[kReaderClosedFlag], 0) !== 0) {
       return { ok: false, error: SPSCError.Badf }
     }
@@ -76,7 +93,6 @@ export class SPSCReader extends SPSC {
 
     let rsize: number
     let wrapped = 0
-    let buf: Uint8Array
 
     // (rpos === wpos) (mod cap) iff. the buffer is full
     if (rpos < wpos) {
@@ -86,14 +102,25 @@ export class SPSCReader extends SPSC {
       wrapped = Math.min(wpos, nbytes - rsize)
     }
 
-    if (wrapped === 0) {
-      buf = this.buffer.slice(rpos, rpos + rsize)
-    } else {
-      buf = new Uint8Array(rsize + wrapped)
+    let buf: Uint8Array
+    if (options?.into) {
+      buf = options.into instanceof Uint8Array ?
+        options.into :
+        new Uint8Array(options.into.buffer, options.into.byteOffset, options.into.byteLength)
       buf.set(this.buffer.subarray(rpos, rpos + rsize))
-      buf.set(this.buffer.subarray(0, wrapped), rsize)
-      rsize += wrapped
+      if (wrapped !== 0) {
+        buf.set(this.buffer.subarray(0, wrapped), rsize)
+      }
+    } else {
+      if (wrapped === 0) {
+        buf = this.buffer.slice(rpos, rpos + rsize)
+      } else {
+        buf = new Uint8Array(rsize + wrapped)
+        buf.set(this.buffer.subarray(rpos, rpos + rsize))
+        buf.set(this.buffer.subarray(0, wrapped), rsize)
+      }
     }
+    rsize += wrapped
 
     Atomics.store(this[kReaderPos], 0, (rpos_ + rsize) % (this.capacity << 1))
     this.#notifyReaderPos()
