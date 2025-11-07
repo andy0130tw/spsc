@@ -33,6 +33,9 @@ export default async function(sab: SharedArrayBuffer, msgport?: MessagePort, sig
   let lastReportedSeq = 0
   console.warn('reader start', performance.now())
 
+  const buf = new Uint8Array(16)
+  const readOpts = { into: buf, ...(msgport ? { nonblock: true } : undefined) }
+
   let seq = 0
   while (true) {
     if (halted) {
@@ -40,8 +43,8 @@ export default async function(sab: SharedArrayBuffer, msgport?: MessagePort, sig
       return
     }
 
-    const reqcnt = Math.floor(Math.random() * 10) + 1
-    const result = reader.read(reqcnt, msgport ? { nonblock: true } : undefined)
+    const reqcnt = Math.floor(Math.random() * 16) + 1
+    const result = reader.read(reqcnt, readOpts)
 
     if (!result.ok) {
       if (msgport && result.error === SPSCError.Again) {
