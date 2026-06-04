@@ -6,7 +6,7 @@ import {
 } from './internal.js'
 import { SPSC, SPSCError } from './common.js'
 
-export { SPSCError } from './common.js'
+export { SPSCError }
 
 interface _WriteOptions {
   nonblock: boolean

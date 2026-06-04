@@ -54,19 +54,26 @@ export class SPSCReader extends SPSC {
       throw new TypeError('nbytes should be a non-negative integer')
     }
 
-    if (options?.into) {
-      const intoLen = options.into.byteLength ?? (options.into.buffer.byteLength - (options.into.byteOffset ?? 0))
-      if (intoLen < nbytes) {
-        throw new TypeError(`the buffer size to read into (${intoLen}) is smaller than bytes requested to read (${nbytes})`)
-      }
-    }
-
     if (Atomics.load(this[kReaderClosedFlag], 0) !== 0) {
       return { ok: false, error: SPSCError.Badf }
     }
 
+    function normalizeIntoBuf(): Uint8Array {
+      if (options?.into) {
+        const intoLen = options.into.byteLength ?? (options.into.buffer.byteLength - (options.into.byteOffset ?? 0))
+        if (intoLen < nbytes) {
+          throw new TypeError(`the buffer size to read into (${intoLen}) is smaller than bytes requested to read (${nbytes})`)
+        }
+
+        return options.into instanceof Uint8Array ?
+          options.into :
+          new Uint8Array(options.into.buffer, options.into.byteOffset, options.into.byteLength)
+      }
+      return new Uint8Array()
+    }
+
     if (nbytes === 0) {
-      return { ok: true, bytesRead: 0, data: new Uint8Array() }
+      return { ok: true, bytesRead: 0, data: normalizeIntoBuf() }
     }
 
     let rpos = this.loadReaderPos()
@@ -74,7 +81,7 @@ export class SPSCReader extends SPSC {
     while (wpos === rpos) {
       if (Atomics.load(this[kWriterClosedFlag], 0) !== 0) {
         // EOF
-        return { ok: true, bytesRead: 0, data: new Uint8Array() }
+        return { ok: true, bytesRead: 0, data: normalizeIntoBuf() }
       }
 
       if (options?.nonblock) {
@@ -104,9 +111,7 @@ export class SPSCReader extends SPSC {
 
     let buf: Uint8Array
     if (options?.into) {
-      buf = options.into instanceof Uint8Array ?
-        options.into :
-        new Uint8Array(options.into.buffer, options.into.byteOffset, options.into.byteLength)
+      buf = normalizeIntoBuf()
       buf.set(this.buffer.subarray(rpos, rpos + rsize))
       if (wrapped !== 0) {
         buf.set(this.buffer.subarray(0, wrapped), rsize)
